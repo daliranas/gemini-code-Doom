@@ -1,0 +1,24 @@
+{
+  "name": "doom-ia",
+  "version": "1.0.0",
+  "description": "DOOM 1993 2D Raycasting Engine - Node.js Web Application Demo",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "doom",
+    "raycasting",
+    "canvas",
+    "webgl",
+    "javascript",
+    "nodejs",
+    "express",
+    "game-engine"
+  ],
+  "author": "Jules",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

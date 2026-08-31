@@ -2,68 +2,96 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JS DOOM 1993 - Raycasting 2D Demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>JS DOOM 1993 - Raycasting 2D Responsive</title>
     <style>
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
             user-select: none;
+            -webkit-user-select: none;
         }
 
-        body {
-            background-color: #080808;
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050505;
             color: #e0e0e0;
             font-family: 'Courier New', Courier, monospace;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
-            overflow: hidden;
+        }
+
+        #app-header {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            text-align: center;
+            pointer-events: none;
         }
 
         h1 {
             color: #cc1111;
             text-shadow: 0 0 10px #ff0000, 2px 2px 0 #000;
-            margin-bottom: 10px;
-            font-size: 26px;
+            font-size: clamp(16px, 3vw, 24px);
             letter-spacing: 2px;
             text-transform: uppercase;
+            white-space: nowrap;
         }
 
         #game-container {
             position: relative;
+            width: 96vw;
+            height: 84vh;
+            max-width: 1280px;
+            max-height: 800px;
             border: 4px solid #333;
-            box-shadow: 0 0 25px rgba(255, 0, 0, 0.4), 0 0 15px rgba(0, 0, 0, 0.9);
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.4), 0 0 15px rgba(0, 0, 0, 0.9);
             background-color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         canvas {
             display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
             image-rendering: pixelated;
             image-rendering: crisp-edges;
             cursor: crosshair;
         }
 
         #controls-overlay {
-            margin-top: 12px;
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
             background: rgba(20, 20, 20, 0.9);
             border: 1px solid #444;
-            padding: 10px 18px;
+            padding: 6px 16px;
             border-radius: 4px;
             display: flex;
-            gap: 20px;
-            font-size: 13px;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            font-size: clamp(10px, 1.5vw, 12px);
             color: #aaa;
             box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            z-index: 10;
         }
 
         .key-group {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
         }
 
         kbd {
@@ -74,7 +102,7 @@
             box-shadow: 0 1px 0 rgba(0,0,0,0.2), inset 0 0 0 1px #fff;
             color: #fff;
             display: inline-block;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: bold;
             padding: 2px 5px;
             text-transform: uppercase;
@@ -84,14 +112,22 @@
             color: #ff3333;
             font-weight: bold;
         }
+
+        @media (max-height: 500px) {
+            #app-header { display: none; }
+            #controls-overlay { padding: 4px 10px; gap: 8px; }
+            #game-container { height: 92vh; }
+        }
     </style>
 </head>
 <body>
 
-    <h1>JS DOOM 1993 - Raycasting 2D Engine</h1>
+    <div id="app-header">
+        <h1>JS DOOM 1993 - Raycasting 2D Responsive</h1>
+    </div>
 
     <div id="game-container">
-        <canvas id="viewport" width="640" height="400"></canvas>
+        <canvas id="viewport"></canvas>
     </div>
 
     <div id="controls-overlay">
@@ -111,19 +147,41 @@
 
     <script>
         /**
-         * DOOM 1993 2D Raycasting Engine - Self Contained
-         * pure Vanilla JS & HTML5 Canvas API
+         * DOOM 1993 2D Raycasting Engine - Responsive & Self-Contained
+         * Pure Vanilla JS & HTML5 Canvas API
          */
 
-        // --- CONSTANTES ET CONFIGURATION ---
-        const SCREEN_WIDTH = 640;
-        const SCREEN_HEIGHT = 400;
-        const VIEWPORT_HEIGHT = 340; // Hauteur réservée pour la vue 3D (espace restant pour la barre HUD)
-        const HUD_HEIGHT = 60;
-        const FOV = Math.PI / 3; // 60 degrés
+        // --- DYNAMIQUE ET RESPONSIVE RESOLUTION ---
+        const canvas = document.getElementById('viewport');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('game-container');
 
-        // Carte 2D (Matrice 16x16)
-        // 0 = vide, 1 = mur rouge, 2 = mur vert, 3 = mur bleu, 4 = mur métallique/jaune
+        // Dimensions internes de rendu (Buffer resolution)
+        let SCREEN_WIDTH = 640;
+        let SCREEN_HEIGHT = 400;
+        let VIEWPORT_HEIGHT = 340;
+        let HUD_HEIGHT = 60;
+        let FOV = Math.PI / 3; // 60 degrés
+
+        function handleResize() {
+            // Ajustement dynamique du buffer de rendu tout en préservant la netteté rétro
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+
+            // Définir la résolution interne en fonction du conteneur (ratio conservé)
+            SCREEN_WIDTH = Math.max(320, Math.min(1280, containerWidth));
+            SCREEN_HEIGHT = Math.max(200, Math.min(800, containerHeight));
+
+            HUD_HEIGHT = Math.floor(SCREEN_HEIGHT * 0.15); // HUD occupe 15% de la hauteur
+            VIEWPORT_HEIGHT = SCREEN_HEIGHT - HUD_HEIGHT;
+
+            canvas.width = SCREEN_WIDTH;
+            canvas.height = SCREEN_HEIGHT;
+        }
+
+        window.addEventListener('resize', handleResize);
+
+        // --- CARTE ET CONFIGURATION ---
         const MAP_WIDTH = 16;
         const MAP_HEIGHT = 16;
         const MAP = [
@@ -145,7 +203,6 @@
             [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
         ];
 
-        // Palettes de couleurs pour les murs [base, ombre pour faces Y]
         const WALL_COLORS = {
             1: { base: [180, 40, 40],   dark: [120, 25, 25] },   // Rouge Brique
             2: { base: [40, 160, 50],   dark: [25, 100, 30] },   // Vert Toxique
@@ -153,22 +210,18 @@
             4: { base: [180, 150, 40],  dark: [115, 95, 25] }    // Jaune Métal
         };
 
-        // --- ÉTAT DU JEU ---
-        const canvas = document.getElementById('viewport');
-        const ctx = canvas.getContext('2d');
-
+        // --- ÉTAT DU JEU ET JOUEUR ---
         const player = {
             x: 2.5,
             y: 2.5,
-            angle: 0.2,          // Angle de vue en radians
-            moveSpeed: 3.2,      // Unités par seconde
-            rotSpeed: 2.6,       // Radians par seconde
+            angle: 0.2,
+            moveSpeed: 3.2,
+            rotSpeed: 2.6,
             runMultiplier: 1.6,
-            radius: 0.25,        // Rayon de collision
+            radius: 0.25,
             health: 100,
             armor: 50,
-            ammo: 50,
-            kills: 0
+            ammo: 50
         };
 
         const keys = {
@@ -178,8 +231,7 @@
             right: false,
             strafeLeft: false,
             strafeRight: false,
-            shift: false,
-            shoot: false
+            shift: false
         };
 
         let showMinimap = true;
@@ -188,14 +240,13 @@
         let frameCount = 0;
         let fpsTimer = 0;
 
-        // Effets et animations d'arme
         let isShooting = false;
         let shootAnimTimer = 0;
         let walkBobbing = 0;
         let muzzleFlash = false;
         let screenMuzzleFlash = 0;
 
-        // --- ENREGISTREMENT DES ENTRÉES CLAVIER ET SOURIS ---
+        // --- CONTROLES CLAVIER & SOURIS ---
         window.addEventListener('keydown', (e) => handleKey(e, true));
         window.addEventListener('keyup', (e) => handleKey(e, false));
         canvas.addEventListener('mousedown', (e) => {
@@ -214,35 +265,28 @@
             if (code === 'ArrowRight') keys.right = isDown;
             if (code === 'ShiftLeft' || code === 'ShiftRight') keys.shift = isDown;
 
-            if (code === 'Space' && isDown) {
-                triggerShot();
-            }
-
-            if (code === 'KeyM' && isDown) {
-                showMinimap = !showMinimap;
-            }
+            if (code === 'Space' && isDown) triggerShot();
+            if (code === 'KeyM' && isDown) showMinimap = !showMinimap;
         }
 
         function triggerShot() {
             if (!isShooting && player.ammo > 0) {
                 isShooting = true;
-                shootAnimTimer = 0.25; // 0.25 seconde d'animation
+                shootAnimTimer = 0.25;
                 player.ammo--;
                 muzzleFlash = true;
                 screenMuzzleFlash = 0.08;
             }
         }
 
-        // --- DEPLACEMENT ET COLLISION ---
+        // --- LOGIQUE JOUEUR & COLLISION ---
         function updatePlayer(deltaTime) {
             const speed = player.moveSpeed * (keys.shift ? player.runMultiplier : 1.0) * deltaTime;
             const rSpeed = player.rotSpeed * deltaTime;
 
-            // Rotation
             if (keys.left) player.angle -= rSpeed;
             if (keys.right) player.angle += rSpeed;
 
-            // Normalisation angle (-PI à PI)
             while (player.angle < -Math.PI) player.angle += Math.PI * 2;
             while (player.angle > Math.PI) player.angle -= Math.PI * 2;
 
@@ -251,49 +295,28 @@
 
             const dirX = Math.cos(player.angle);
             const dirY = Math.sin(player.angle);
-            const perpX = -Math.sin(player.angle); // Strafe
+            const perpX = -Math.sin(player.angle);
             const perpY = Math.cos(player.angle);
 
-            if (keys.up) {
-                moveX += dirX * speed;
-                moveY += dirY * speed;
-            }
-            if (keys.down) {
-                moveX -= dirX * speed;
-                moveY -= dirY * speed;
-            }
-            if (keys.strafeLeft) {
-                moveX -= perpX * speed;
-                moveY -= perpY * speed;
-            }
-            if (keys.strafeRight) {
-                moveX += perpX * speed;
-                moveY += perpY * speed;
-            }
+            if (keys.up) { moveX += dirX * speed; moveY += dirY * speed; }
+            if (keys.down) { moveX -= dirX * speed; moveY -= dirY * speed; }
+            if (keys.strafeLeft) { moveX -= perpX * speed; moveY -= perpY * speed; }
+            if (keys.strafeRight) { moveX += perpX * speed; moveY += perpY * speed; }
 
-            // Bobbing lors de la marche
             if (moveX !== 0 || moveY !== 0) {
                 walkBobbing += deltaTime * (keys.shift ? 16 : 10);
             } else {
                 walkBobbing = 0;
             }
 
-            // Application du déplacement avec détection de collision et glissement contre les murs
             if (moveX !== 0 || moveY !== 0) {
                 const nextX = player.x + moveX;
                 const nextY = player.y + moveY;
 
-                // Test axe X
-                if (!isWall(nextX + Math.sign(moveX) * player.radius, player.y)) {
-                    player.x = nextX;
-                }
-                // Test axe Y
-                if (!isWall(player.x, nextY + Math.sign(moveY) * player.radius)) {
-                    player.y = nextY;
-                }
+                if (!isWall(nextX + Math.sign(moveX) * player.radius, player.y)) player.x = nextX;
+                if (!isWall(player.x, nextY + Math.sign(moveY) * player.radius)) player.y = nextY;
             }
 
-            // Mise à jour de l'animation de tir
             if (isShooting) {
                 shootAnimTimer -= deltaTime;
                 if (shootAnimTimer <= 0) {
@@ -301,9 +324,7 @@
                     muzzleFlash = false;
                 }
             }
-            if (screenMuzzleFlash > 0) {
-                screenMuzzleFlash -= deltaTime;
-            }
+            if (screenMuzzleFlash > 0) screenMuzzleFlash -= deltaTime;
         }
 
         function isWall(x, y) {
@@ -315,62 +336,43 @@
 
         // --- MOTEUR DE RAYCASTING (DDA ALGORITHM) ---
         function renderScene() {
-            // 1. Rendu Ciel et Sol (Background)
-            ctx.fillStyle = '#181818'; // Plafond (Gris Sombre DOOM)
+            // Background Ciel et Sol
+            ctx.fillStyle = '#181818';
             ctx.fillRect(0, 0, SCREEN_WIDTH, VIEWPORT_HEIGHT / 2);
 
-            ctx.fillStyle = '#382818'; // Sol (Marron Terre DOOM)
+            ctx.fillStyle = '#382818';
             ctx.fillRect(0, VIEWPORT_HEIGHT / 2, SCREEN_WIDTH, VIEWPORT_HEIGHT / 2);
 
-            // 2. Calcul et Rendu des Murs en Raycasting (colonne par colonne)
             const dirX = Math.cos(player.angle);
             const dirY = Math.sin(player.angle);
 
-            // Vecteur du plan de caméra perpendicular au vecteur de direction (détermine le FOV)
             const fovScale = Math.tan(FOV / 2);
             const planeX = -dirY * fovScale;
             const planeY = dirX * fovScale;
 
             for (let x = 0; x < SCREEN_WIDTH; x++) {
-                // Coordonnée X dans l'espace caméra (-1 à +1)
                 const cameraX = 2 * x / SCREEN_WIDTH - 1;
-
-                // Direction du rayon pour cette colonne
                 const rayDirX = dirX + planeX * cameraX;
                 const rayDirY = dirY + planeY * cameraX;
 
-                // Case courante sur la carte
                 let mapX = Math.floor(player.x);
                 let mapY = Math.floor(player.y);
 
-                // Longueur du rayon entre deux intersections d'axes X ou Y
                 const deltaDistX = Math.abs(1 / rayDirX);
                 const deltaDistY = Math.abs(1 / rayDirY);
 
                 let stepX, stepY;
                 let sideDistX, sideDistY;
 
-                // Orientation du pas et distance initiale
-                if (rayDirX < 0) {
-                    stepX = -1;
-                    sideDistX = (player.x - mapX) * deltaDistX;
-                } else {
-                    stepX = 1;
-                    sideDistX = (mapX + 1.0 - player.x) * deltaDistX;
-                }
+                if (rayDirX < 0) { stepX = -1; sideDistX = (player.x - mapX) * deltaDistX; }
+                else { stepX = 1; sideDistX = (mapX + 1.0 - player.x) * deltaDistX; }
 
-                if (rayDirY < 0) {
-                    stepY = -1;
-                    sideDistY = (player.y - mapY) * deltaDistY;
-                } else {
-                    stepY = 1;
-                    sideDistY = (mapY + 1.0 - player.y) * deltaDistY;
-                }
+                if (rayDirY < 0) { stepY = -1; sideDistY = (player.y - mapY) * deltaDistY; }
+                else { stepY = 1; sideDistY = (mapY + 1.0 - player.y) * deltaDistY; }
 
                 let hit = 0;
-                let side = 0; // 0: face NS (verticale), 1: face EO (horizontale)
+                let side = 0;
 
-                // Algorithme DDA (Digital Differential Analysis)
                 while (hit === 0) {
                     if (sideDistX < sideDistY) {
                         sideDistX += deltaDistX;
@@ -383,35 +385,23 @@
                     }
 
                     if (mapX < 0 || mapX >= MAP_WIDTH || mapY < 0 || mapY >= MAP_HEIGHT) {
-                        hit = 1; // Hors limites (mur)
+                        hit = 1;
                     } else if (MAP[mapY][mapX] > 0) {
                         hit = MAP[mapY][mapX];
                     }
                 }
 
-                // Distance perpendiculaire au mur (évite la déformation Fisheye)
-                let perpWallDist;
-                if (side === 0) {
-                    perpWallDist = (mapX - player.x + (1 - stepX) / 2) / rayDirX;
-                } else {
-                    perpWallDist = (mapY - player.y + (1 - stepY) / 2) / rayDirY;
-                }
-
+                let perpWallDist = side === 0 ? (mapX - player.x + (1 - stepX) / 2) / rayDirX : (mapY - player.y + (1 - stepY) / 2) / rayDirY;
                 if (perpWallDist <= 0.0001) perpWallDist = 0.0001;
 
-                // Hauteur de la colonne à afficher
                 const lineHeight = Math.floor(VIEWPORT_HEIGHT / perpWallDist);
-
-                // Position verticale de début et de fin du mur
                 const drawStart = Math.max(0, Math.floor(-lineHeight / 2 + VIEWPORT_HEIGHT / 2));
                 const drawEnd = Math.min(VIEWPORT_HEIGHT - 1, Math.floor(lineHeight / 2 + VIEWPORT_HEIGHT / 2));
 
-                // Calcul de la couleur avec shading selon la distance (Fog) et la face de collision
                 const wallType = (hit > 0 && hit <= 4) ? hit : 1;
                 const palette = WALL_COLORS[wallType] || WALL_COLORS[1];
                 const baseRGB = side === 1 ? palette.dark : palette.base;
 
-                // Calcul du facteur d'ombrage/brouillard en fonction de la distance (style DOOM)
                 const fogFactor = Math.min(1.0, Math.max(0.0, 1.0 - (perpWallDist / 12.0)));
                 const r = Math.floor(baseRGB[0] * fogFactor);
                 const g = Math.floor(baseRGB[1] * fogFactor);
@@ -421,239 +411,155 @@
                 ctx.fillRect(x, drawStart, 1, drawEnd - drawStart + 1);
             }
 
-            // Flash de tir sur le viewport
             if (screenMuzzleFlash > 0) {
                 ctx.fillStyle = 'rgba(255, 230, 150, 0.25)';
                 ctx.fillRect(0, 0, SCREEN_WIDTH, VIEWPORT_HEIGHT);
             }
 
-            // 3. Dessin de l'Arme HUD en bas au centre
             renderWeapon();
-
-            // 4. Interface HUD Style DOOM en bas de l'écran
             renderHUD();
-
-            // 5. Minicarte 2D en superposition
-            if (showMinimap) {
-                renderMinimap();
-            }
+            if (showMinimap) renderMinimap();
         }
 
-        // --- RENDU DE L'ARME PROCEDURALE (SHOTGUN DOOM) ---
+        // --- RENDU ARME PROCEDURALE ---
         function renderWeapon() {
             const centerX = SCREEN_WIDTH / 2;
             const baseY = VIEWPORT_HEIGHT;
 
-            // Décalage du bobbing de marche (mouvement sinusoïdal)
-            const bobX = Math.cos(walkBobbing) * 6;
-            const bobY = Math.abs(Math.sin(walkBobbing)) * 8;
+            const bobX = Math.cos(walkBobbing) * (SCREEN_WIDTH * 0.01);
+            const bobY = Math.abs(Math.sin(walkBobbing)) * (SCREEN_HEIGHT * 0.02);
 
-            // Animation de recul lors du tir
             let recoilY = 0;
             let recoilX = 0;
             if (isShooting) {
-                const progress = shootAnimTimer / 0.25; // 1.0 à 0.0
-                recoilY = Math.sin(progress * Math.PI) * 22;
+                const progress = shootAnimTimer / 0.25;
+                recoilY = Math.sin(progress * Math.PI) * (VIEWPORT_HEIGHT * 0.06);
                 recoilX = (Math.random() - 0.5) * 4;
             }
 
             const weaponX = centerX + bobX + recoilX;
             const weaponY = baseY + bobY + recoilY;
+            const scale = VIEWPORT_HEIGHT / 340;
 
             ctx.save();
             ctx.translate(weaponX, weaponY);
+            ctx.scale(scale, scale);
 
-            // Muzzle Flash (Éclair de tir au bout du canon)
             if (muzzleFlash && isShooting) {
                 ctx.fillStyle = '#ffea00';
                 ctx.beginPath();
-                ctx.moveTo(0, -115);
-                ctx.lineTo(-30, -75);
-                ctx.lineTo(-10, -75);
-                ctx.lineTo(-20, -45);
-                ctx.lineTo(0, -60);
-                ctx.lineTo(20, -45);
-                ctx.lineTo(10, -75);
-                ctx.lineTo(30, -75);
-                ctx.closePath();
-                ctx.fill();
+                ctx.moveTo(0, -115); ctx.lineTo(-30, -75); ctx.lineTo(-10, -75);
+                ctx.lineTo(-20, -45); ctx.lineTo(0, -60); ctx.lineTo(20, -45);
+                ctx.lineTo(10, -75); ctx.lineTo(30, -75);
+                ctx.closePath(); ctx.fill();
 
                 ctx.fillStyle = '#ffffff';
-                ctx.beginPath();
-                ctx.arc(0, -70, 18, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.beginPath(); ctx.arc(0, -70, 18, 0, Math.PI * 2); ctx.fill();
             }
 
-            // Main / Poignée
-            ctx.fillStyle = '#4a3728';
-            ctx.fillRect(-22, -25, 44, 30);
-
-            // Corps du Shotgun (Métal Sombre)
-            ctx.fillStyle = '#222';
-            ctx.fillRect(-18, -70, 36, 50);
-
-            ctx.fillStyle = '#333';
-            ctx.fillRect(-14, -75, 28, 55);
-
-            // Canon Métallique
-            ctx.fillStyle = '#111';
-            ctx.fillRect(-9, -95, 18, 30);
-
-            // Reflet métallique clair
-            ctx.fillStyle = '#666';
-            ctx.fillRect(-6, -95, 4, 30);
-            ctx.fillRect(-6, -70, 4, 45);
-
-            // Trou du canon
-            ctx.fillStyle = '#000';
-            ctx.beginPath();
-            ctx.ellipse(0, -95, 8, 3, 0, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.fillStyle = '#4a3728'; ctx.fillRect(-22, -25, 44, 30);
+            ctx.fillStyle = '#222'; ctx.fillRect(-18, -70, 36, 50);
+            ctx.fillStyle = '#333'; ctx.fillRect(-14, -75, 28, 55);
+            ctx.fillStyle = '#111'; ctx.fillRect(-9, -95, 18, 30);
+            ctx.fillStyle = '#666'; ctx.fillRect(-6, -95, 4, 30); ctx.fillRect(-6, -70, 4, 45);
+            ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(0, -95, 8, 3, 0, 0, Math.PI * 2); ctx.fill();
 
             ctx.restore();
         }
 
-        // --- BARRE DE STATUT HUD STYLE DOOM ---
+        // --- RENDU BARRE HUD DOOM ---
         function renderHUD() {
             const hudY = VIEWPORT_HEIGHT;
 
-            // Fond HUD métallique gris/bleuté avec bordure
-            ctx.fillStyle = '#1c2024';
-            ctx.fillRect(0, hudY, SCREEN_WIDTH, HUD_HEIGHT);
+            ctx.fillStyle = '#1c2024'; ctx.fillRect(0, hudY, SCREEN_WIDTH, HUD_HEIGHT);
+            ctx.fillStyle = '#3a424a'; ctx.fillRect(0, hudY, SCREEN_WIDTH, 3);
 
-            ctx.fillStyle = '#3a424a';
-            ctx.fillRect(0, hudY, SCREEN_WIDTH, 4);
-
-            // Subdivisions HUD
             const secWidth = SCREEN_WIDTH / 4;
+            const fontSizeTitle = Math.max(9, Math.floor(HUD_HEIGHT * 0.2));
+            const fontSizeVal = Math.max(14, Math.floor(HUD_HEIGHT * 0.45));
 
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
             for (let i = 1; i < 4; i++) {
-                ctx.beginPath();
-                ctx.moveTo(secWidth * i, hudY);
-                ctx.lineTo(secWidth * i, hudY + HUD_HEIGHT);
-                ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(secWidth * i, hudY); ctx.lineTo(secWidth * i, hudY + HUD_HEIGHT); ctx.stroke();
             }
 
-            // Textes et valeurs du HUD
             ctx.textAlign = 'center';
 
-            // Section 1: MUNITIONS
-            ctx.fillStyle = '#b22222';
-            ctx.font = 'bold 11px sans-serif';
-            ctx.fillText('AMMO', secWidth * 0.5, hudY + 16);
-            ctx.fillStyle = '#ffcc00';
-            ctx.font = 'bold 24px monospace';
-            ctx.fillText(player.ammo.toString().padStart(3, '0'), secWidth * 0.5, hudY + 46);
+            // Ammo
+            ctx.fillStyle = '#b22222'; ctx.font = `bold ${fontSizeTitle}px sans-serif`;
+            ctx.fillText('AMMO', secWidth * 0.5, hudY + HUD_HEIGHT * 0.3);
+            ctx.fillStyle = '#ffcc00'; ctx.font = `bold ${fontSizeVal}px monospace`;
+            ctx.fillText(player.ammo.toString().padStart(3, '0'), secWidth * 0.5, hudY + HUD_HEIGHT * 0.78);
 
-            // Section 2: SANTE
-            ctx.fillStyle = '#b22222';
-            ctx.font = 'bold 11px sans-serif';
-            ctx.fillText('HEALTH', secWidth * 1.5, hudY + 16);
-            ctx.fillStyle = player.health > 25 ? '#00ff00' : '#ff0000';
-            ctx.font = 'bold 24px monospace';
-            ctx.fillText(`${player.health}%`, secWidth * 1.5, hudY + 46);
+            // Health
+            ctx.fillStyle = '#b22222'; ctx.font = `bold ${fontSizeTitle}px sans-serif`;
+            ctx.fillText('HEALTH', secWidth * 1.5, hudY + HUD_HEIGHT * 0.3);
+            ctx.fillStyle = player.health > 25 ? '#00ff00' : '#ff0000'; ctx.font = `bold ${fontSizeVal}px monospace`;
+            ctx.fillText(`${player.health}%`, secWidth * 1.5, hudY + HUD_HEIGHT * 0.78);
 
-            // Section 3: VISAGE DU DOOMGUY (Procedural Face)
+            // Doomguy Face
             const faceCenterX = secWidth * 2.5;
-            const faceCenterY = hudY + 30;
+            const faceCenterY = hudY + HUD_HEIGHT * 0.5;
+            const faceRadius = Math.min(secWidth, HUD_HEIGHT) * 0.3;
 
-            // Tête
-            ctx.fillStyle = '#dca175';
-            ctx.beginPath();
-            ctx.arc(faceCenterX, faceCenterY, 18, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.fillStyle = '#dca175'; ctx.beginPath(); ctx.arc(faceCenterX, faceCenterY, faceRadius, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#4a2e12'; ctx.beginPath(); ctx.arc(faceCenterX, faceCenterY - faceRadius * 0.2, faceRadius, Math.PI, Math.PI * 2); ctx.fill();
 
-            // Cheveux
-            ctx.fillStyle = '#4a2e12';
-            ctx.beginPath();
-            ctx.arc(faceCenterX, faceCenterY - 4, 18, Math.PI, Math.PI * 2);
-            ctx.fill();
-
-            // Yeux (qui regardent à droite/gauche selon l'orientation)
-            const eyeOffset = Math.sin(player.angle) * 3;
+            const eyeOffset = Math.sin(player.angle) * (faceRadius * 0.15);
             ctx.fillStyle = '#fff';
-            ctx.fillRect(faceCenterX - 9 + eyeOffset, faceCenterY - 4, 5, 4);
-            ctx.fillRect(faceCenterX + 4 + eyeOffset, faceCenterY - 4, 5, 4);
+            ctx.fillRect(faceCenterX - faceRadius * 0.5 + eyeOffset, faceCenterY - faceRadius * 0.2, faceRadius * 0.3, faceRadius * 0.2);
+            ctx.fillRect(faceCenterX + faceRadius * 0.2 + eyeOffset, faceCenterY - faceRadius * 0.2, faceRadius * 0.3, faceRadius * 0.2);
             ctx.fillStyle = '#000';
-            ctx.fillRect(faceCenterX - 8 + eyeOffset, faceCenterY - 3, 2, 2);
-            ctx.fillRect(faceCenterX + 5 + eyeOffset, faceCenterY - 3, 2, 2);
+            ctx.fillRect(faceCenterX - faceRadius * 0.4 + eyeOffset, faceCenterY - faceRadius * 0.15, faceRadius * 0.12, faceRadius * 0.12);
+            ctx.fillRect(faceCenterX + faceRadius * 0.3 + eyeOffset, faceCenterY - faceRadius * 0.15, faceRadius * 0.12, faceRadius * 0.12);
 
-            // Bouche déterminee
-            ctx.fillStyle = '#800000';
-            ctx.fillRect(faceCenterX - 6, faceCenterY + 7, 12, 3);
+            // Armor
+            ctx.fillStyle = '#b22222'; ctx.font = `bold ${fontSizeTitle}px sans-serif`;
+            ctx.fillText('ARMOR', secWidth * 3.5, hudY + HUD_HEIGHT * 0.3);
+            ctx.fillStyle = '#00ccff'; ctx.font = `bold ${fontSizeVal}px monospace`;
+            ctx.fillText(`${player.armor}%`, secWidth * 3.5, hudY + HUD_HEIGHT * 0.78);
 
-            // Section 4: ARMURE & FPS
-            ctx.fillStyle = '#b22222';
-            ctx.font = 'bold 11px sans-serif';
-            ctx.fillText('ARMOR', secWidth * 3.5, hudY + 16);
-            ctx.fillStyle = '#00ccff';
-            ctx.font = 'bold 24px monospace';
-            ctx.fillText(`${player.armor}%`, secWidth * 3.5, hudY + 46);
-
-            // FPS Counter (Coin supérieur droit du Viewport)
-            ctx.textAlign = 'right';
-            ctx.fillStyle = '#00ff00';
-            ctx.font = 'bold 12px monospace';
-            ctx.fillText(`FPS: ${fps}`, SCREEN_WIDTH - 8, 18);
+            // FPS Counter
+            ctx.textAlign = 'right'; ctx.fillStyle = '#00ff00'; ctx.font = 'bold 12px monospace';
+            ctx.fillText(`FPS: ${fps}`, SCREEN_WIDTH - 8, 16);
         }
 
-        // --- MINICARTE 2D OVERLAY ---
+        // --- OVERLAY MINICARTE 2D ---
         function renderMinimap() {
-            const mapScale = 6;
+            const mapScale = Math.min(SCREEN_WIDTH, VIEWPORT_HEIGHT) * 0.015;
             const offsetX = 10;
             const offsetY = 10;
 
-            // Fond minicarte semi-transparent
             ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
             ctx.fillRect(offsetX - 2, offsetY - 2, MAP_WIDTH * mapScale + 4, MAP_HEIGHT * mapScale + 4);
             ctx.strokeStyle = '#555';
             ctx.strokeRect(offsetX - 2, offsetY - 2, MAP_WIDTH * mapScale + 4, MAP_HEIGHT * mapScale + 4);
 
-            // Murs de la grille
             for (let r = 0; r < MAP_HEIGHT; r++) {
                 for (let c = 0; c < MAP_WIDTH; c++) {
                     if (MAP[r][c] > 0) {
                         ctx.fillStyle = MAP[r][c] === 1 ? '#aa3333' : MAP[r][c] === 2 ? '#33aa33' : MAP[r][c] === 3 ? '#3333aa' : '#aaaa33';
-                        ctx.fillRect(offsetX + c * mapScale, offsetY + r * mapScale, mapScale - 1, mapScale - 1);
+                        ctx.fillRect(offsetX + c * mapScale, offsetY + r * mapScale, mapScale - 0.5, mapScale - 0.5);
                     }
                 }
             }
 
-            // Position et cône de vue du Joueur
             const pX = offsetX + player.x * mapScale;
             const pY = offsetY + player.y * mapScale;
 
-            // Cône de vue (FOV)
             ctx.fillStyle = 'rgba(255, 255, 0, 0.25)';
-            ctx.beginPath();
-            ctx.moveTo(pX, pY);
-            ctx.arc(pX, pY, 18, player.angle - FOV / 2, player.angle + FOV / 2);
-            ctx.closePath();
-            ctx.fill();
+            ctx.beginPath(); ctx.moveTo(pX, pY);
+            ctx.arc(pX, pY, mapScale * 3, player.angle - FOV / 2, player.angle + FOV / 2);
+            ctx.closePath(); ctx.fill();
 
-            // Point Joueur
-            ctx.fillStyle = '#00ffff';
-            ctx.beginPath();
-            ctx.arc(pX, pY, 3, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Ligne de direction
-            ctx.strokeStyle = '#00ffff';
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(pX, pY);
-            ctx.lineTo(pX + Math.cos(player.angle) * 8, pY + Math.sin(player.angle) * 8);
-            ctx.stroke();
+            ctx.fillStyle = '#00ffff'; ctx.beginPath(); ctx.arc(pX, pY, 2.5, 0, Math.PI * 2); ctx.fill();
         }
 
-        // --- BOUCLE PRINCIPALE D'ANIMATION ---
+        // --- BOUCLE D'ANIMATION ---
         function gameLoop(timestamp) {
-            const deltaTime = Math.min((timestamp - lastTime) / 1000, 0.1); // Sécurité max 100ms
+            const deltaTime = Math.min((timestamp - lastTime) / 1000, 0.1);
             lastTime = timestamp;
 
-            // Calcul du FPS
             frameCount++;
             fpsTimer += deltaTime;
             if (fpsTimer >= 1.0) {
@@ -662,19 +568,15 @@
                 fpsTimer = 0;
             }
 
-            // Mise à jour de la logique
             updatePlayer(deltaTime);
-
-            // Effacement de l'écran
             ctx.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-
-            // Rendu complet
             renderScene();
 
             requestAnimationFrame(gameLoop);
         }
 
-        // Démarrage de la boucle de jeu
+        // Initialisation du resize et lancement du jeu
+        handleResize();
         requestAnimationFrame(gameLoop);
     </script>
 </body>

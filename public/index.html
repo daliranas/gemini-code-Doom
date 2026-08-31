@@ -3,581 +3,285 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>JS DOOM 1993 - Raycasting 2D Responsive</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            user-select: none;
-            -webkit-user-select: none;
-        }
-
-        html, body {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #050505;
-            color: #e0e0e0;
-            font-family: 'Courier New', Courier, monospace;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #app-header {
-            position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 10;
-            text-align: center;
-            pointer-events: none;
-        }
-
-        h1 {
-            color: #cc1111;
-            text-shadow: 0 0 10px #ff0000, 2px 2px 0 #000;
-            font-size: clamp(16px, 3vw, 24px);
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            white-space: nowrap;
-        }
-
-        #game-container {
-            position: relative;
-            width: 96vw;
-            height: 84vh;
-            max-width: 1280px;
-            max-height: 800px;
-            border: 4px solid #333;
-            box-shadow: 0 0 30px rgba(255, 0, 0, 0.4), 0 0 15px rgba(0, 0, 0, 0.9);
-            background-color: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            image-rendering: pixelated;
-            image-rendering: crisp-edges;
-            cursor: crosshair;
-        }
-
-        #controls-overlay {
-            position: absolute;
-            bottom: 8px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(20, 20, 20, 0.9);
-            border: 1px solid #444;
-            padding: 6px 16px;
-            border-radius: 4px;
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 15px;
-            font-size: clamp(10px, 1.5vw, 12px);
-            color: #aaa;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-            z-index: 10;
-        }
-
-        .key-group {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        kbd {
-            background: #222;
-            border: 1px solid #555;
-            border-bottom-color: #333;
-            border-radius: 3px;
-            box-shadow: 0 1px 0 rgba(0,0,0,0.2), inset 0 0 0 1px #fff;
-            color: #fff;
-            display: inline-block;
-            font-size: 10px;
-            font-weight: bold;
-            padding: 2px 5px;
-            text-transform: uppercase;
-        }
-
-        .highlight {
-            color: #ff3333;
-            font-weight: bold;
-        }
-
-        @media (max-height: 500px) {
-            #app-header { display: none; }
-            #controls-overlay { padding: 4px 10px; gap: 8px; }
-            #game-container { height: 92vh; }
-        }
-    </style>
+    <title>DOOM IA - Moteur Raycasting Éducatif</title>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-    <div id="app-header">
-        <h1>JS DOOM 1993 - Raycasting 2D Responsive</h1>
-    </div>
-
     <div id="game-container">
-        <canvas id="viewport"></canvas>
+        
+        <!-- SURFACE DE RENDU RAYCASTING 3D -->
+        <div id="viewport-wrapper">
+            <canvas id="viewport"></canvas>
+            <div id="damage-flash"></div>
+            <div id="game-log"></div>
+
+            <!-- RÉTICULE & PROMPT D'INTERACTION AU CENTRE DE L'ÉCRAN -->
+            <div id="crosshair"></div>
+            <div id="interaction-prompt" class="hidden">
+                <span class="prompt-icon">🚪</span>
+                <span id="prompt-text" class="prompt-label">[E] OUVRIR / CLIC</span>
+            </div>
+
+            <!-- ÉCRAN DU MENU PRINCIPAL AUTHENTIQUE DOOM -->
+            <div id="main-menu" class="overlay-screen">
+                <div class="doom-main-title">DOOM IA</div>
+                <div class="doom-episode-subtitle" id="menu-sub-title">EPISODE 1: LES PROFONDEURS DU CODE</div>
+
+                <div class="doom-menu-list">
+                    <button id="btn-newgame" class="doom-menu-item active" data-i18n="new_game">NOUVELLE PARTIE</button>
+                    
+                    <div id="diff-submenu" class="doom-submenu">
+                        <button class="doom-sub-item active" data-diff="easy" data-i18n="diff_easy">1. TROP JEUNE POUR MOURIR</button>
+                        <button class="doom-sub-item" data-diff="normal" data-i18n="diff_normal">2. PAS TROP VIOLENT</button>
+                        <button class="doom-sub-item" data-diff="hard" data-i18n="diff_hard">3. FAIS-MOI MAL</button>
+                        <button class="doom-sub-item" data-diff="nightmare" data-i18n="diff_nightmare">4. CAUCHEMAR INFERNAL</button>
+                    </div>
+
+                    <button id="btn-scores" class="doom-menu-item" style="color: #ffcc00;">TABLEAU DES SCORES (SQLITE)</button>
+                    <button id="btn-graphics" class="doom-menu-item" data-i18n="settings_btn">REGLAGES / GRAPHISMES</button>
+                    <button id="btn-credits" class="doom-menu-item" data-i18n="credits_btn">CREDITS & MENTIONS LEGALES</button>
+
+                    <button id="btn-play-action" class="doom-menu-item" data-i18n="enter_arena" style="color: #ffaa00; margin-top: 6px;">[ ENTRER DANS L'ARENE (ENTREE) ]</button>
+                </div>
+            </div>
+
+            <!-- MODALE TABLEAU DES SCORES (SQLITE) -->
+            <div id="scores-modal" class="overlay-screen hidden">
+                <div class="doom-main-title" style="font-size: 34px; color: #ffcc00;">TABLEAU DES SCORES</div>
+                <div class="doom-episode-subtitle">TOP 10 DES MARINES DE L'ENFER (SQLITE3 DB)</div>
+
+                <div style="background: rgba(15, 10, 10, 0.95); border: 2px solid #ffcc00; padding: 15px; width: 620px; max-height: 280px; overflow-y: auto; margin: 12px 0;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 10px; text-align: left;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #551111; color: #ff3322;">
+                                <th style="padding: 6px;">#</th>
+                                <th style="padding: 6px;">MARINE</th>
+                                <th style="padding: 6px;">SCORE</th>
+                                <th style="padding: 6px;">KILLS</th>
+                                <th style="padding: 6px;">DIFFICULTÉ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scores-table-body">
+                            <!-- Rempli dynamiquement par SQLite -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="doom-menu-list" style="margin-top: 10px; width: 440px;">
+                    <button id="btn-scores-back" class="doom-menu-item active" style="text-align: center;">[ RETOUR AU MENU ]</button>
+                </div>
+            </div>
+
+            <!-- MODALE RÉGLAGES GRAPHIQUES & LANGUE -->
+            <div id="settings-modal" class="overlay-screen hidden">
+                <div class="doom-main-title" style="font-size: 34px;" data-i18n="settings_title">REGLAGES</div>
+                <div class="doom-episode-subtitle" data-i18n="settings_subtitle">REGLAGES GRAPHIQUES, AUDIO & LANGUE</div>
+
+                <div class="doom-menu-list" style="width: 620px;">
+                    <div class="setting-row">
+                        <span data-i18n="language_label">LANGUE / LANGUAGE</span>
+                        <div class="setting-controls">
+                            <button class="btn-setting-lang active" data-lang="fr">FRANÇAIS 🇫🇷</button>
+                            <button class="btn-setting-lang" data-lang="en">ENGLISH 🇬🇧</button>
+                        </div>
+                    </div>
+
+                    <div class="setting-row">
+                        <span data-i18n="res_label">RESOLUTION RENDU 3D</span>
+                        <div class="setting-controls">
+                            <button class="btn-setting-res" data-res="low">240p</button>
+                            <button class="btn-setting-res active" data-res="normal">320p DOOM</button>
+                            <button class="btn-setting-res" data-res="high">720p HD</button>
+                            <button class="btn-setting-res" data-res="fullhd">1080p ULTRA</button>
+                        </div>
+                    </div>
+
+                    <div class="setting-row">
+                        <span data-i18n="lighting_label">ECLAIRAGE DYNAMIQUE & FLASH</span>
+                        <input type="checkbox" id="chk-lighting" checked>
+                    </div>
+
+                    <div class="setting-row">
+                        <span data-i18n="skybox_label">CIEL PANORAMIQUE DEMONIAQUE</span>
+                        <input type="checkbox" id="chk-skybox" checked>
+                    </div>
+
+                    <div class="setting-row">
+                        <span data-i18n="melt_label">FONDU LIQUIDE (SCREEN MELT)</span>
+                        <input type="checkbox" id="chk-melt" checked>
+                    </div>
+
+                    <div class="setting-row">
+                        <span data-i18n="music_label">MUSIQUE & SFX (TONE.JS)</span>
+                        <input type="checkbox" id="chk-music" checked>
+                    </div>
+
+                    <button id="btn-settings-back" class="doom-menu-item active" data-i18n="back_btn" style="text-align: center; margin-top: 10px;">[ RETOUR AU MENU ]</button>
+                </div>
+            </div>
+
+            <!-- MODALE CRÉDITS & MENTIONS LÉGALES -->
+            <div id="credits-modal" class="overlay-screen hidden">
+                <div class="doom-main-title" style="font-size: 34px; color: #00e5ff;" data-i18n="credits_title">CREDITS</div>
+                <div class="doom-episode-subtitle" data-i18n="credits_subtitle">PROJET EDUCATIF & EXPERIMENTAL</div>
+
+                <div class="credits-box">
+                    <p class="credit-highlight" data-i18n="authors_label">Projet concu et developpe par :</p>
+                    <p class="credit-authors">⭐ DALIRANAS & JULES & GOOGLE IA ⭐</p>
+                    
+                    <hr class="credit-divider">
+                    
+                    <p class="credit-disclaimer" data-i18n="legal_p1">
+                        AVERTISSEMENT & MENTIONS LEGALES : Ce projet est un projet purement educatif et experimental visant a demontrer la programmation d'un moteur de Raycasting 2.5D en JavaScript Canvas / Node.js.
+                    </p>
+                    <p class="credit-disclaimer" data-i18n="legal_p2" style="margin-top: 8px;">
+                        Ce logiciel n'est en aucun cas affilie, sponsorise, lie ou approuve par id Software ou Bethesda Softworks. DOOM est une marque deposee de id Software LLC / ZeniMax Media Inc.
+                    </p>
+                </div>
+
+                <div class="doom-menu-list" style="margin-top: 14px; width: 440px;">
+                    <button id="btn-credits-back" class="doom-menu-item active" data-i18n="back_btn" style="text-align: center;">[ RETOUR ]</button>
+                </div>
+            </div>
+
+            <!-- ÉCRAN D'INTERMISSION DE FIN DE NIVEAU -->
+            <div id="intermission-menu" class="overlay-screen hidden">
+                <div class="doom-main-title" style="font-size: 38px; color: #ffcc00;" data-i18n="level_finished">NIVEAU TERMINE</div>
+                <div class="doom-episode-subtitle" id="intermission-floor-name">E1M1: HANGAR UAC</div>
+
+                <div style="background: rgba(10, 5, 5, 0.9); border: 2px solid #551111; padding: 18px 30px; width: 440px; margin: 12px 0;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 12px;">
+                        <span style="color: #aa2222;" data-i18n="stat_kills">VICTIMES</span>
+                        <span id="tally-kills" style="color: #ff3333; font-size: 16px;">0%</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 12px;">
+                        <span style="color: #aa2222;" data-i18n="stat_items">OBJETS</span>
+                        <span id="tally-items" style="color: #ffcc00; font-size: 16px;">0%</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 12px;">
+                        <span style="color: #aa2222;" data-i18n="stat_secret">SECRETS</span>
+                        <span id="tally-secret" style="color: #00ffff; font-size: 16px;">0/3</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="color: #aa2222;" data-i18n="stat_time">TEMPS</span>
+                        <span id="tally-time" style="color: #ffffff; font-size: 16px;">00:00</span>
+                    </div>
+                </div>
+
+                <div class="doom-menu-list">
+                    <button id="btn-intermission-next" class="doom-menu-item active" data-i18n="proceed_next" style="text-align: center; color: #00ff88;">[ NIVEAU SUIVANT (ENTREE) ]</button>
+                </div>
+            </div>
+
+            <!-- ÉCRAN GAME OVER -->
+            <div id="gameover-menu" class="overlay-screen hidden">
+                <div class="doom-main-title" style="color: #ff1100; text-shadow: 0 0 25px #ff0000;" data-i18n="you_died">VOUS ETES MORT</div>
+                <div class="doom-episode-subtitle" id="gameover-stats">VICTIMES: 0 - SCORE: 0</div>
+                
+                <div style="margin: 12px 0;">
+                    <input type="text" id="player-name-input" placeholder="ENTREZ VOTRE PSEUDO" maxlength="12" style="background: #111; color: #ffcc00; border: 2px solid #ff3322; padding: 8px 12px; font-family: inherit; font-size: 11px; text-align: center; width: 260px;">
+                    <button id="btn-save-score" class="doom-btn" style="padding: 8px 14px; margin-left: 6px;">ENREGISTRER</button>
+                </div>
+
+                <div class="doom-menu-list">
+                    <button id="btn-respawn" class="doom-menu-item active" data-i18n="respawn">REAPPARAITRE (ENTREE)</button>
+                    <button id="btn-menu-back" class="doom-menu-item" data-i18n="main_menu">MENU PRINCIPAL (ECHAP)</button>
+                </div>
+            </div>
+
+            <!-- ÉCRAN VICTOIRE FINALE -->
+            <div id="victory-menu" class="overlay-screen hidden">
+                <div class="doom-main-title" style="color: #ffea00; text-shadow: 0 0 30px #ffcc00;" data-i18n="victory">VICTOIRE</div>
+                <div class="doom-episode-subtitle" id="victory-stats" data-i18n="victory_sub">L'ENFER A ETE PURIFIE !</div>
+
+                <div style="margin: 12px 0;">
+                    <input type="text" id="victory-player-name" placeholder="ENTREZ VOTRE PSEUDO" maxlength="12" style="background: #111; color: #ffcc00; border: 2px solid #00ff88; padding: 8px 12px; font-family: inherit; font-size: 11px; text-align: center; width: 260px;">
+                    <button id="btn-save-victory-score" class="doom-btn" style="padding: 8px 14px; margin-left: 6px; background: #008844;">ENREGISTRER</button>
+                </div>
+
+                <div class="doom-menu-list">
+                    <button id="btn-replay" class="doom-menu-item active" data-i18n="play_again">REJOUER (ENTREE)</button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- HUD DOOM BIS OFFICIEL COMPLET AVEC ROQUETTES -->
+        <div id="doom-hud">
+            <div class="hud-block">
+                <span class="hud-label" data-i18n="hud_health">SANTE</span>
+                <span class="hud-val" id="hud-health">100%</span>
+            </div>
+
+            <div class="hud-block">
+                <span class="hud-label" data-i18n="hud_armor">ARMURE</span>
+                <span class="hud-val cyan" id="hud-armor">50%</span>
+            </div>
+
+            <div class="hud-block">
+                <span class="hud-label" data-i18n="hud_arms">ARMES</span>
+                <span class="hud-val yellow" id="hud-weapon" style="font-size: 11px;">SUPER SHOTGUN</span>
+            </div>
+
+            <canvas id="doomguy-face" width="50" height="54"></canvas>
+
+            <div class="hud-block">
+                <span class="hud-label" data-i18n="hud_ammo">BALLES</span>
+                <span class="hud-val gold" id="hud-ammo">80</span>
+            </div>
+
+            <div class="hud-block">
+                <span class="hud-label">ROQUETTES</span>
+                <span class="hud-val" id="hud-rockets" style="color: #ff7700;">15</span>
+            </div>
+
+            <div class="hud-block">
+                <span class="hud-label" data-i18n="hud_plasma">PLASMA</span>
+                <span class="hud-val green" id="hud-plasma" style="color: #00ff88;">40</span>
+            </div>
+
+            <div class="hud-block">
+                <span class="hud-label" data-i18n="hud_keys">CLES</span>
+                <div id="hud-keys" style="display: flex; gap: 4px; margin-top: 4px;">
+                    <span id="key-blue-badge" style="display: inline-block; width: 12px; height: 12px; background: #222; border: 1px solid #444; border-radius: 2px;"></span>
+                    <span id="key-red-badge" style="display: inline-block; width: 12px; height: 12px; background: #222; border: 1px solid #444; border-radius: 2px;"></span>
+                    <span id="key-yellow-badge" style="display: inline-block; width: 12px; height: 12px; background: #222; border: 1px solid #444; border-radius: 2px;"></span>
+                </div>
+            </div>
+
+            <button id="btn-mute" class="hud-btn">MUTE 🔊</button>
+        </div>
+
+        <!-- BARRE DE COMMANDES EN BAS -->
+        <div id="controls-overlay">
+            <div class="key-group">
+                <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> : <span class="highlight" data-i18n="ctrl_moves">Mouvements</span>
+            </div>
+            <div class="key-group">
+                <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><kbd>5</kbd> : <span class="highlight" data-i18n="ctrl_weapons">Arsenal (1-5)</span>
+            </div>
+            <div class="key-group">
+                <kbd>E</kbd> / <kbd>ESPACE</kbd> / <kbd>CLIC</kbd> : <span class="highlight" data-i18n="ctrl_doors">Portes/Secrets</span>
+            </div>
+            <div class="key-group">
+                <kbd>ENTREE</kbd> : <span class="highlight" data-i18n="ctrl_enter">Valider</span>
+            </div>
+            <div class="key-group">
+                <kbd>M</kbd> : <span class="highlight" data-i18n="ctrl_map">Minicarte</span>
+            </div>
+        </div>
+
     </div>
 
-    <div id="controls-overlay">
-        <div class="key-group">
-            <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> : <span class="highlight">Déplacement / Rotation</span>
-        </div>
-        <div class="key-group">
-            <kbd>Espace</kbd> / <kbd>Clic</kbd> : <span class="highlight">Tirer</span>
-        </div>
-        <div class="key-group">
-            <kbd>Shift</kbd> : <span class="highlight">Courir</span>
-        </div>
-        <div class="key-group">
-            <kbd>M</kbd> : <span class="highlight">Minicarte</span>
-        </div>
-    </div>
-
-    <script>
-        /**
-         * DOOM 1993 2D Raycasting Engine - Responsive & Self-Contained
-         * Pure Vanilla JS & HTML5 Canvas API
-         */
-
-        // --- DYNAMIQUE ET RESPONSIVE RESOLUTION ---
-        const canvas = document.getElementById('viewport');
-        const ctx = canvas.getContext('2d');
-        const container = document.getElementById('game-container');
-
-        // Dimensions internes de rendu (Buffer resolution)
-        let SCREEN_WIDTH = 640;
-        let SCREEN_HEIGHT = 400;
-        let VIEWPORT_HEIGHT = 340;
-        let HUD_HEIGHT = 60;
-        let FOV = Math.PI / 3; // 60 degrés
-
-        function handleResize() {
-            // Ajustement dynamique du buffer de rendu tout en préservant la netteté rétro
-            const containerWidth = container.clientWidth;
-            const containerHeight = container.clientHeight;
-
-            // Définir la résolution interne en fonction du conteneur (ratio conservé)
-            SCREEN_WIDTH = Math.max(320, Math.min(1280, containerWidth));
-            SCREEN_HEIGHT = Math.max(200, Math.min(800, containerHeight));
-
-            HUD_HEIGHT = Math.floor(SCREEN_HEIGHT * 0.15); // HUD occupe 15% de la hauteur
-            VIEWPORT_HEIGHT = SCREEN_HEIGHT - HUD_HEIGHT;
-
-            canvas.width = SCREEN_WIDTH;
-            canvas.height = SCREEN_HEIGHT;
-        }
-
-        window.addEventListener('resize', handleResize);
-
-        // --- CARTE ET CONFIGURATION ---
-        const MAP_WIDTH = 16;
-        const MAP_HEIGHT = 16;
-        const MAP = [
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-            [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 0, 2, 2, 0, 0, 1, 0, 3, 3, 3, 3, 0, 4, 0, 1],
-            [1, 0, 2, 0, 0, 0, 0, 0, 3, 0, 0, 3, 0, 4, 0, 1],
-            [1, 0, 2, 0, 4, 4, 1, 0, 3, 0, 0, 3, 0, 4, 0, 1],
-            [1, 0, 0, 0, 4, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 1, 1, 0, 4, 0, 1, 1, 1, 0, 2, 2, 2, 2, 0, 1],
-            [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 2, 0, 0, 2, 0, 1],
-            [1, 0, 3, 3, 3, 0, 1, 0, 1, 0, 2, 0, 0, 2, 0, 1],
-            [1, 0, 3, 0, 3, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 0, 3, 0, 3, 0, 1, 1, 1, 4, 4, 0, 4, 4, 1, 1],
-            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 4, 0, 0, 1],
-            [1, 0, 2, 2, 2, 2, 0, 1, 0, 0, 4, 0, 4, 0, 0, 1],
-            [1, 0, 2, 0, 0, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-        ];
-
-        const WALL_COLORS = {
-            1: { base: [180, 40, 40],   dark: [120, 25, 25] },   // Rouge Brique
-            2: { base: [40, 160, 50],   dark: [25, 100, 30] },   // Vert Toxique
-            3: { base: [40, 90, 180],   dark: [25, 55, 115] },   // Bleu High-Tech
-            4: { base: [180, 150, 40],  dark: [115, 95, 25] }    // Jaune Métal
-        };
-
-        // --- ÉTAT DU JEU ET JOUEUR ---
-        const player = {
-            x: 2.5,
-            y: 2.5,
-            angle: 0.2,
-            moveSpeed: 3.2,
-            rotSpeed: 2.6,
-            runMultiplier: 1.6,
-            radius: 0.25,
-            health: 100,
-            armor: 50,
-            ammo: 50
-        };
-
-        const keys = {
-            up: false,
-            down: false,
-            left: false,
-            right: false,
-            strafeLeft: false,
-            strafeRight: false,
-            shift: false
-        };
-
-        let showMinimap = true;
-        let lastTime = performance.now();
-        let fps = 60;
-        let frameCount = 0;
-        let fpsTimer = 0;
-
-        let isShooting = false;
-        let shootAnimTimer = 0;
-        let walkBobbing = 0;
-        let muzzleFlash = false;
-        let screenMuzzleFlash = 0;
-
-        // --- CONTROLES CLAVIER & SOURIS ---
-        window.addEventListener('keydown', (e) => handleKey(e, true));
-        window.addEventListener('keyup', (e) => handleKey(e, false));
-        canvas.addEventListener('mousedown', (e) => {
-            if (e.button === 0) triggerShot();
-        });
-
-        function handleKey(e, isDown) {
-            const code = e.code;
-            const key = e.key.toLowerCase();
-
-            if (code === 'KeyW' || code === 'ArrowUp' || key === 'z') keys.up = isDown;
-            if (code === 'KeyS' || code === 'ArrowDown' || key === 's') keys.down = isDown;
-            if (code === 'KeyA' || key === 'q') keys.strafeLeft = isDown;
-            if (code === 'KeyD' || key === 'd') keys.strafeRight = isDown;
-            if (code === 'ArrowLeft') keys.left = isDown;
-            if (code === 'ArrowRight') keys.right = isDown;
-            if (code === 'ShiftLeft' || code === 'ShiftRight') keys.shift = isDown;
-
-            if (code === 'Space' && isDown) triggerShot();
-            if (code === 'KeyM' && isDown) showMinimap = !showMinimap;
-        }
-
-        function triggerShot() {
-            if (!isShooting && player.ammo > 0) {
-                isShooting = true;
-                shootAnimTimer = 0.25;
-                player.ammo--;
-                muzzleFlash = true;
-                screenMuzzleFlash = 0.08;
-            }
-        }
-
-        // --- LOGIQUE JOUEUR & COLLISION ---
-        function updatePlayer(deltaTime) {
-            const speed = player.moveSpeed * (keys.shift ? player.runMultiplier : 1.0) * deltaTime;
-            const rSpeed = player.rotSpeed * deltaTime;
-
-            if (keys.left) player.angle -= rSpeed;
-            if (keys.right) player.angle += rSpeed;
-
-            while (player.angle < -Math.PI) player.angle += Math.PI * 2;
-            while (player.angle > Math.PI) player.angle -= Math.PI * 2;
-
-            let moveX = 0;
-            let moveY = 0;
-
-            const dirX = Math.cos(player.angle);
-            const dirY = Math.sin(player.angle);
-            const perpX = -Math.sin(player.angle);
-            const perpY = Math.cos(player.angle);
-
-            if (keys.up) { moveX += dirX * speed; moveY += dirY * speed; }
-            if (keys.down) { moveX -= dirX * speed; moveY -= dirY * speed; }
-            if (keys.strafeLeft) { moveX -= perpX * speed; moveY -= perpY * speed; }
-            if (keys.strafeRight) { moveX += perpX * speed; moveY += perpY * speed; }
-
-            if (moveX !== 0 || moveY !== 0) {
-                walkBobbing += deltaTime * (keys.shift ? 16 : 10);
-            } else {
-                walkBobbing = 0;
-            }
-
-            if (moveX !== 0 || moveY !== 0) {
-                const nextX = player.x + moveX;
-                const nextY = player.y + moveY;
-
-                if (!isWall(nextX + Math.sign(moveX) * player.radius, player.y)) player.x = nextX;
-                if (!isWall(player.x, nextY + Math.sign(moveY) * player.radius)) player.y = nextY;
-            }
-
-            if (isShooting) {
-                shootAnimTimer -= deltaTime;
-                if (shootAnimTimer <= 0) {
-                    isShooting = false;
-                    muzzleFlash = false;
-                }
-            }
-            if (screenMuzzleFlash > 0) screenMuzzleFlash -= deltaTime;
-        }
-
-        function isWall(x, y) {
-            const mapX = Math.floor(x);
-            const mapY = Math.floor(y);
-            if (mapX < 0 || mapX >= MAP_WIDTH || mapY < 0 || mapY >= MAP_HEIGHT) return true;
-            return MAP[mapY][mapX] > 0;
-        }
-
-        // --- MOTEUR DE RAYCASTING (DDA ALGORITHM) ---
-        function renderScene() {
-            // Background Ciel et Sol
-            ctx.fillStyle = '#181818';
-            ctx.fillRect(0, 0, SCREEN_WIDTH, VIEWPORT_HEIGHT / 2);
-
-            ctx.fillStyle = '#382818';
-            ctx.fillRect(0, VIEWPORT_HEIGHT / 2, SCREEN_WIDTH, VIEWPORT_HEIGHT / 2);
-
-            const dirX = Math.cos(player.angle);
-            const dirY = Math.sin(player.angle);
-
-            const fovScale = Math.tan(FOV / 2);
-            const planeX = -dirY * fovScale;
-            const planeY = dirX * fovScale;
-
-            for (let x = 0; x < SCREEN_WIDTH; x++) {
-                const cameraX = 2 * x / SCREEN_WIDTH - 1;
-                const rayDirX = dirX + planeX * cameraX;
-                const rayDirY = dirY + planeY * cameraX;
-
-                let mapX = Math.floor(player.x);
-                let mapY = Math.floor(player.y);
-
-                const deltaDistX = Math.abs(1 / rayDirX);
-                const deltaDistY = Math.abs(1 / rayDirY);
-
-                let stepX, stepY;
-                let sideDistX, sideDistY;
-
-                if (rayDirX < 0) { stepX = -1; sideDistX = (player.x - mapX) * deltaDistX; }
-                else { stepX = 1; sideDistX = (mapX + 1.0 - player.x) * deltaDistX; }
-
-                if (rayDirY < 0) { stepY = -1; sideDistY = (player.y - mapY) * deltaDistY; }
-                else { stepY = 1; sideDistY = (mapY + 1.0 - player.y) * deltaDistY; }
-
-                let hit = 0;
-                let side = 0;
-
-                while (hit === 0) {
-                    if (sideDistX < sideDistY) {
-                        sideDistX += deltaDistX;
-                        mapX += stepX;
-                        side = 0;
-                    } else {
-                        sideDistY += deltaDistY;
-                        mapY += stepY;
-                        side = 1;
-                    }
-
-                    if (mapX < 0 || mapX >= MAP_WIDTH || mapY < 0 || mapY >= MAP_HEIGHT) {
-                        hit = 1;
-                    } else if (MAP[mapY][mapX] > 0) {
-                        hit = MAP[mapY][mapX];
-                    }
-                }
-
-                let perpWallDist = side === 0 ? (mapX - player.x + (1 - stepX) / 2) / rayDirX : (mapY - player.y + (1 - stepY) / 2) / rayDirY;
-                if (perpWallDist <= 0.0001) perpWallDist = 0.0001;
-
-                const lineHeight = Math.floor(VIEWPORT_HEIGHT / perpWallDist);
-                const drawStart = Math.max(0, Math.floor(-lineHeight / 2 + VIEWPORT_HEIGHT / 2));
-                const drawEnd = Math.min(VIEWPORT_HEIGHT - 1, Math.floor(lineHeight / 2 + VIEWPORT_HEIGHT / 2));
-
-                const wallType = (hit > 0 && hit <= 4) ? hit : 1;
-                const palette = WALL_COLORS[wallType] || WALL_COLORS[1];
-                const baseRGB = side === 1 ? palette.dark : palette.base;
-
-                const fogFactor = Math.min(1.0, Math.max(0.0, 1.0 - (perpWallDist / 12.0)));
-                const r = Math.floor(baseRGB[0] * fogFactor);
-                const g = Math.floor(baseRGB[1] * fogFactor);
-                const b = Math.floor(baseRGB[2] * fogFactor);
-
-                ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-                ctx.fillRect(x, drawStart, 1, drawEnd - drawStart + 1);
-            }
-
-            if (screenMuzzleFlash > 0) {
-                ctx.fillStyle = 'rgba(255, 230, 150, 0.25)';
-                ctx.fillRect(0, 0, SCREEN_WIDTH, VIEWPORT_HEIGHT);
-            }
-
-            renderWeapon();
-            renderHUD();
-            if (showMinimap) renderMinimap();
-        }
-
-        // --- RENDU ARME PROCEDURALE ---
-        function renderWeapon() {
-            const centerX = SCREEN_WIDTH / 2;
-            const baseY = VIEWPORT_HEIGHT;
-
-            const bobX = Math.cos(walkBobbing) * (SCREEN_WIDTH * 0.01);
-            const bobY = Math.abs(Math.sin(walkBobbing)) * (SCREEN_HEIGHT * 0.02);
-
-            let recoilY = 0;
-            let recoilX = 0;
-            if (isShooting) {
-                const progress = shootAnimTimer / 0.25;
-                recoilY = Math.sin(progress * Math.PI) * (VIEWPORT_HEIGHT * 0.06);
-                recoilX = (Math.random() - 0.5) * 4;
-            }
-
-            const weaponX = centerX + bobX + recoilX;
-            const weaponY = baseY + bobY + recoilY;
-            const scale = VIEWPORT_HEIGHT / 340;
-
-            ctx.save();
-            ctx.translate(weaponX, weaponY);
-            ctx.scale(scale, scale);
-
-            if (muzzleFlash && isShooting) {
-                ctx.fillStyle = '#ffea00';
-                ctx.beginPath();
-                ctx.moveTo(0, -115); ctx.lineTo(-30, -75); ctx.lineTo(-10, -75);
-                ctx.lineTo(-20, -45); ctx.lineTo(0, -60); ctx.lineTo(20, -45);
-                ctx.lineTo(10, -75); ctx.lineTo(30, -75);
-                ctx.closePath(); ctx.fill();
-
-                ctx.fillStyle = '#ffffff';
-                ctx.beginPath(); ctx.arc(0, -70, 18, 0, Math.PI * 2); ctx.fill();
-            }
-
-            ctx.fillStyle = '#4a3728'; ctx.fillRect(-22, -25, 44, 30);
-            ctx.fillStyle = '#222'; ctx.fillRect(-18, -70, 36, 50);
-            ctx.fillStyle = '#333'; ctx.fillRect(-14, -75, 28, 55);
-            ctx.fillStyle = '#111'; ctx.fillRect(-9, -95, 18, 30);
-            ctx.fillStyle = '#666'; ctx.fillRect(-6, -95, 4, 30); ctx.fillRect(-6, -70, 4, 45);
-            ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(0, -95, 8, 3, 0, 0, Math.PI * 2); ctx.fill();
-
-            ctx.restore();
-        }
-
-        // --- RENDU BARRE HUD DOOM ---
-        function renderHUD() {
-            const hudY = VIEWPORT_HEIGHT;
-
-            ctx.fillStyle = '#1c2024'; ctx.fillRect(0, hudY, SCREEN_WIDTH, HUD_HEIGHT);
-            ctx.fillStyle = '#3a424a'; ctx.fillRect(0, hudY, SCREEN_WIDTH, 3);
-
-            const secWidth = SCREEN_WIDTH / 4;
-            const fontSizeTitle = Math.max(9, Math.floor(HUD_HEIGHT * 0.2));
-            const fontSizeVal = Math.max(14, Math.floor(HUD_HEIGHT * 0.45));
-
-            ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
-            for (let i = 1; i < 4; i++) {
-                ctx.beginPath(); ctx.moveTo(secWidth * i, hudY); ctx.lineTo(secWidth * i, hudY + HUD_HEIGHT); ctx.stroke();
-            }
-
-            ctx.textAlign = 'center';
-
-            // Ammo
-            ctx.fillStyle = '#b22222'; ctx.font = `bold ${fontSizeTitle}px sans-serif`;
-            ctx.fillText('AMMO', secWidth * 0.5, hudY + HUD_HEIGHT * 0.3);
-            ctx.fillStyle = '#ffcc00'; ctx.font = `bold ${fontSizeVal}px monospace`;
-            ctx.fillText(player.ammo.toString().padStart(3, '0'), secWidth * 0.5, hudY + HUD_HEIGHT * 0.78);
-
-            // Health
-            ctx.fillStyle = '#b22222'; ctx.font = `bold ${fontSizeTitle}px sans-serif`;
-            ctx.fillText('HEALTH', secWidth * 1.5, hudY + HUD_HEIGHT * 0.3);
-            ctx.fillStyle = player.health > 25 ? '#00ff00' : '#ff0000'; ctx.font = `bold ${fontSizeVal}px monospace`;
-            ctx.fillText(`${player.health}%`, secWidth * 1.5, hudY + HUD_HEIGHT * 0.78);
-
-            // Doomguy Face
-            const faceCenterX = secWidth * 2.5;
-            const faceCenterY = hudY + HUD_HEIGHT * 0.5;
-            const faceRadius = Math.min(secWidth, HUD_HEIGHT) * 0.3;
-
-            ctx.fillStyle = '#dca175'; ctx.beginPath(); ctx.arc(faceCenterX, faceCenterY, faceRadius, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = '#4a2e12'; ctx.beginPath(); ctx.arc(faceCenterX, faceCenterY - faceRadius * 0.2, faceRadius, Math.PI, Math.PI * 2); ctx.fill();
-
-            const eyeOffset = Math.sin(player.angle) * (faceRadius * 0.15);
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(faceCenterX - faceRadius * 0.5 + eyeOffset, faceCenterY - faceRadius * 0.2, faceRadius * 0.3, faceRadius * 0.2);
-            ctx.fillRect(faceCenterX + faceRadius * 0.2 + eyeOffset, faceCenterY - faceRadius * 0.2, faceRadius * 0.3, faceRadius * 0.2);
-            ctx.fillStyle = '#000';
-            ctx.fillRect(faceCenterX - faceRadius * 0.4 + eyeOffset, faceCenterY - faceRadius * 0.15, faceRadius * 0.12, faceRadius * 0.12);
-            ctx.fillRect(faceCenterX + faceRadius * 0.3 + eyeOffset, faceCenterY - faceRadius * 0.15, faceRadius * 0.12, faceRadius * 0.12);
-
-            // Armor
-            ctx.fillStyle = '#b22222'; ctx.font = `bold ${fontSizeTitle}px sans-serif`;
-            ctx.fillText('ARMOR', secWidth * 3.5, hudY + HUD_HEIGHT * 0.3);
-            ctx.fillStyle = '#00ccff'; ctx.font = `bold ${fontSizeVal}px monospace`;
-            ctx.fillText(`${player.armor}%`, secWidth * 3.5, hudY + HUD_HEIGHT * 0.78);
-
-            // FPS Counter
-            ctx.textAlign = 'right'; ctx.fillStyle = '#00ff00'; ctx.font = 'bold 12px monospace';
-            ctx.fillText(`FPS: ${fps}`, SCREEN_WIDTH - 8, 16);
-        }
-
-        // --- OVERLAY MINICARTE 2D ---
-        function renderMinimap() {
-            const mapScale = Math.min(SCREEN_WIDTH, VIEWPORT_HEIGHT) * 0.015;
-            const offsetX = 10;
-            const offsetY = 10;
-
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-            ctx.fillRect(offsetX - 2, offsetY - 2, MAP_WIDTH * mapScale + 4, MAP_HEIGHT * mapScale + 4);
-            ctx.strokeStyle = '#555';
-            ctx.strokeRect(offsetX - 2, offsetY - 2, MAP_WIDTH * mapScale + 4, MAP_HEIGHT * mapScale + 4);
-
-            for (let r = 0; r < MAP_HEIGHT; r++) {
-                for (let c = 0; c < MAP_WIDTH; c++) {
-                    if (MAP[r][c] > 0) {
-                        ctx.fillStyle = MAP[r][c] === 1 ? '#aa3333' : MAP[r][c] === 2 ? '#33aa33' : MAP[r][c] === 3 ? '#3333aa' : '#aaaa33';
-                        ctx.fillRect(offsetX + c * mapScale, offsetY + r * mapScale, mapScale - 0.5, mapScale - 0.5);
-                    }
-                }
-            }
-
-            const pX = offsetX + player.x * mapScale;
-            const pY = offsetY + player.y * mapScale;
-
-            ctx.fillStyle = 'rgba(255, 255, 0, 0.25)';
-            ctx.beginPath(); ctx.moveTo(pX, pY);
-            ctx.arc(pX, pY, mapScale * 3, player.angle - FOV / 2, player.angle + FOV / 2);
-            ctx.closePath(); ctx.fill();
-
-            ctx.fillStyle = '#00ffff'; ctx.beginPath(); ctx.arc(pX, pY, 2.5, 0, Math.PI * 2); ctx.fill();
-        }
-
-        // --- BOUCLE D'ANIMATION ---
-        function gameLoop(timestamp) {
-            const deltaTime = Math.min((timestamp - lastTime) / 1000, 0.1);
-            lastTime = timestamp;
-
-            frameCount++;
-            fpsTimer += deltaTime;
-            if (fpsTimer >= 1.0) {
-                fps = frameCount;
-                frameCount = 0;
-                fpsTimer = 0;
-            }
-
-            updatePlayer(deltaTime);
-            ctx.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-            renderScene();
-
-            requestAnimationFrame(gameLoop);
-        }
-
-        // Initialisation du resize et lancement du jeu
-        handleResize();
-        requestAnimationFrame(gameLoop);
-    </script>
+    <!-- LIBRAIRIES LOCALES -->
+    <script src="vendor/Tone.js"></script>
+    <script src="vendor/socket.io.min.js"></script>
+
+    <!-- SCRIPTS DU JEU -->
+    <script src="js/audio.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/raycaster.js"></script>
+    <script src="js/game.js"></script>
 </body>
 </html>

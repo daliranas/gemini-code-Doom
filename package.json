@@ -1,7 +1,7 @@
 {
-  "name": "doom-responsive-ia",
-  "version": "1.0.0",
-  "description": "DOOM 1993 2D Raycasting Engine - Responsive Node.js Web Application",
+  "name": "doom-retro-raycasting",
+  "version": "2.0.0",
+  "description": "DOOM 1993 2D Raycasting Engine - Modulaire avec Audio Web Audio API & Synthétiseur Chiptune",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -10,15 +10,20 @@
     "doom",
     "raycasting",
     "canvas",
-    "responsive",
-    "javascript",
+    "web-audio-api",
+    "chiptune",
+    "retro-fps",
     "nodejs",
     "express",
-    "game-engine"
+    "sqlite3"
   ],
-  "author": "Jules",
+  "author": "Daliranas & Jules",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "rot-js": "^2.2.1",
+    "socket.io": "^4.8.3",
+    "sqlite3": "^5.1.7",
+    "tone": "^15.1.22"
   }
 }
